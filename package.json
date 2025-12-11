@@ -12,9 +12,11 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "serverless-http": "^4.0.0"
   },
   "devDependencies": {
+    "@types/aws-lambda": "^8.10.159",
     "@types/express": "^5.0.6",
     "@types/node": "^25.0.0",
     "ts-node": "^10.9.2",
