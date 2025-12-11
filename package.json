@@ -5,9 +5,8 @@
   "scripts": {
     "start": "node dist/index.js",
     "dev": "tsx watch ./index.ts",
-    "build": "tsc && npm run copy-functions",
-    "copy-functions": "mkdir -p netlify/functions && cp -r dist/src/functions/* netlify/functions/",
-    "netlify-build": "npm run build"
+    "build": "tsc",
+    "netlify-build": "echo 'Functions will be built by Netlify'"
   },
   "keywords": [],
   "author": "",
