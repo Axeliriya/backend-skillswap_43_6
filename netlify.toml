@@ -1,9 +1,10 @@
-# netlify.toml
 [build]
+  command = "npm run netlify-build"
   functions = "netlify/functions"
+  publish = "."
 
 [[redirects]]
-  from = "/api/*"
+  from = "/users/*"
   to = "/.netlify/functions/api/:splat"
   status = 200
   force = true
