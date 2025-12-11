@@ -1,6 +1,6 @@
 import serverless from "serverless-http";
 import app from "../../src/app";
-import type { Handler, APIGatewayProxyEvent, Context } from "aws-lambda";
+import type { Handler, APIGatewayProxyEvent } from "aws-lambda";
 
 export const handler: Handler = serverless(app, {
   request: (request: any, event: APIGatewayProxyEvent) => {
