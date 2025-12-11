@@ -1,4 +1,4 @@
-# SkillSwap API — Полноценное серверless API (2025)
+# SkillSwap API — Документация
 
 API для приложения обмена навыками.  
 Работает на **Netlify Functions** (Express.js + TypeScript).  
@@ -103,7 +103,7 @@ CORS открыт полностью (`Access-Control-Allow-Origin: *`).
     "likesCount": 1,
     "likedByUserIds": ["2"]
   }
-  // ... пользователь №2 и №3
+  //все пользователи
 ]
 ```
 
@@ -123,8 +123,8 @@ CORS открыт полностью (`Access-Control-Allow-Origin: *`).
     "categoryId": "1",
     "subcategoryId": "101"
   },
-  "images": [ ...три ссылки на 800px... ],
-  "subcategoriesWantToLearn": [ ... ],
+  "images": [],
+  "subcategoriesWantToLearn": [],
   "likesCount": 1,
   "likedByUserIds": ["2"]
 }
@@ -178,10 +178,7 @@ CORS открыт полностью (`Access-Control-Allow-Origin: *`).
     "categoryId": "7",
     "subcategoryId": "701"
   },
-  "images: [
-    "https://example.com/photo1.jpg",
-    "https://example.com/photo2.jpg"
-  ],
+  "images": ["https://example.com/photo1.jpg", "https://example.com/photo2.jpg"],
   "subcategoriesWantToLearn": [
     { "id": "201", "categoryId": "2" },
     { "id": "301", "categoryId": "3" }
