@@ -16,7 +16,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// Публичные роуты
 app.use("/auth", authRoutes);
 app.use("/categories", categoriesRoutes);
 app.use("/users", usersRoutes);
