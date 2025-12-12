@@ -28,12 +28,22 @@
   status = 200
   force = true
 
+# Универсальный redirect для статики (картинки из public/)
 [[redirects]]
-  from = "/default-avatar.png"
-  to = "/default-avatar.png"
+  from = "/default-*"
+  to = "/:splat"
   status = 200
+  force = false  # Не force, чтобы не перехватывать API
+
+# Или для всех статических файлов 
+[[redirects]]
+  from = "/*.png"
+  to = "/:splat"
+  status = 200
+  force = false
 
 [[redirects]]
-  from = "/default-category.jpg" 
-  to = "/default-category.jpg"
+  from = "/*.jpg"
+  to = "/:splat"
   status = 200
+  force = false
