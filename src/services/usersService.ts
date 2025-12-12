@@ -39,13 +39,11 @@ export async function createUser(payload: CreateUserPayload) {
     id: newId,
     likesCount: 0,
     likedByUserIds: [],
-    avatarUrl:
-      payload.avatarUrl ||
-      "https://i.pinimg.com/736x/62/01/0d/62010d848b790a2336d1542fcda51789.jpg",
+    avatarUrl: payload.avatarUrl || "/default-avatar.jpg",
     location: payload.location || "Не указан",
     birthDate: payload.birthDate || "01.01.2000",
     gender: payload.gender || "Не указан",
-    images: Array.isArray(payload.images) ? payload.images : [],
+    images: Array.isArray(payload.images) ? payload.images : ["/default-category.jpg"],
     subcategoriesWantToLearn: payload.subcategoriesWantToLearn || [],
     name: payload.name || "Без имени",
     skillCanTeach: {
