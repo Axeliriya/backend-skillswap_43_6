@@ -27,3 +27,13 @@
   to = "/.netlify/functions/api/:splat"
   status = 200
   force = true
+
+[[redirects]]
+  from = "/default-avatar.png"
+  to = "/default-avatar.png"
+  status = 200
+
+[[redirects]]
+  from = "/default-category.jpg" 
+  to = "/default-category.jpg"
+  status = 200
