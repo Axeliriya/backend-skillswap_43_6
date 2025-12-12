@@ -39,7 +39,7 @@ export async function createUser(payload: CreateUserPayload) {
     id: newId,
     likesCount: 0,
     likedByUserIds: [],
-    avatarUrl: payload.avatarUrl || "/default-avatar.jpg",
+    avatarUrl: payload.avatarUrl || "/default-avatar.png",
     location: payload.location || "Не указан",
     birthDate: payload.birthDate || "01.01.2000",
     gender: payload.gender || "Не указан",
