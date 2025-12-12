@@ -1,5 +1,3 @@
-// src/data/categories.ts
-
 export type Category = {
   id: string;
   name: string;

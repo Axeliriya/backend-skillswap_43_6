@@ -5,12 +5,14 @@ import {
   getSubcategoriesByCategory,
   getSubcategoryById,
   getCategoryById,
+  getCategoriesTree,
 } from "../controllers/categoriesController";
 
 const router = express.Router();
 
 // Маршруты для категорий
 router.get("/", getCategories); // GET /categories
+router.get("/tree", getCategoriesTree); // GET /categories/tree
 router.get("/:categoryId", getCategoryById); // GET /categories/:categoryId
 
 // Маршруты для подкатегорий

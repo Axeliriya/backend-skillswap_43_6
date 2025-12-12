@@ -1,39 +1,136 @@
 # SkillSwap API — Документация
 
-API для приложения обмена навыками.  
-Работает на **Netlify Functions** (Express.js + TypeScript).  
-Все данные в памяти (для демо/MVP), после редеплоя сбрасываются.
+**Базовый URL:** `https://skillswap-api.netlify.app`
+CORS: открыт полностью (`Access-Control-Allow-Origin: *`).
+Данные хранятся в памяти — после redeploy всё сбрасывается (MVP / demo).
 
-**Базовый URL:**  
-`https://skillswap-api.netlify.app`
+---
 
-CORS открыт полностью (`Access-Control-Allow-Origin: *`).
+## Содержание
 
-## Основные эндпоинты — Пользователи
+1. [Краткое описание](#краткое-описание)
+2. [Аутентификация (JWT)](#аутентификация-jwt)
 
-| Метод | Путь                                | Описание                                  | Пример прямой ссылки                                                        |
-| ----- | ----------------------------------- | ----------------------------------------- | --------------------------------------------------------------------------- |
-| GET   | `/users`                            | Все пользователи                          | [Открыть](https://skillswap-api.netlify.app/users)                          |
-| GET   | `/users/:id`                        | Пользователь по ID                        | [Пример ID=1](https://skillswap-api.netlify.app/users/1)                    |
-| POST  | `/users`                            | Создать нового пользователя (регистрация) | —                                                                           |
-| PUT   | `/users/:id`                        | Обновить профиль                          | —                                                                           |
-| POST  | `/users/:id/like`                   | Поставить/снять лайк (toggle)             | —                                                                           |
-| GET   | `/users/category/:categoryId`       | Все, кто учит навыку из категории         | [Категория 1](https://skillswap-api.netlify.app/users/category/1)           |
-| GET   | `/users/subcategory/:subcategoryId` | Все, кто учит конкретному навыку          | [Подкатегория 103](https://skillswap-api.netlify.app/users/subcategory/103) |
+   - [Эндпоинты auth](#эндпоинты-auth)
+   - [Пример регистрации](#пример-регистрации-post-authregister)
 
-## Эндпоинты — Категории и подкатегории (справочники)
+3. [Пользователи (users)](#пользователи-users)
 
-| Метод | Путь                                       | Описание                                   | Прямая ссылка                                                                      |
-| ----- | ------------------------------------------ | ------------------------------------------ | ---------------------------------------------------------------------------------- |
-| GET   | `/categories`                              | Все категории                              | [Открыть](https://skillswap-api.netlify.app/categories)                            |
-| GET   | `/categories/:categoryId`                  | Одна категория по ID                       | [ID=1](https://skillswap-api.netlify.app/categories/1)                             |
-| GET   | `/categories/:categoryId/subcategories`    | Все подкатегории выбранной категории       | [Творчество](https://skillswap-api.netlify.app/categories/1/subcategories)         |
-| GET   | `/categories/subcategories/all`            | Все подкатегории сразу (удобно для поиска) | [Все подкатегории](https://skillswap-api.netlify.app/categories/subcategories/all) |
-| GET   | `/categories/subcategories/:subcategoryId` | Одна подкатегория                          | [ID=103](https://skillswap-api.netlify.app/categories/subcategories/103)           |
+   - [Эндпоинты users](#эндпоинты-users)
+   - [Пример: создание пользователя (POST /users)](#пример-создания-пользователя-post-users)
+   - [Лайк (toggle)](#лайк-toggle)
 
-## Создание пользователя
+4. [Категории и подкатегории (справочник)](#категории-и-подкатегории-справочник)
 
-`POST https://skillswap-api.netlify.app/users`
+   - [Эндпоинты categories](#эндпоинты-categories)
+   - [Пример ответа /categories/tree](#пример-ответа-categoriestree)
+
+5. [Примеры реальных ответов API](#примеры-реальных-ответов-api)
+6. [Axios-инстанс с автоматическим токеном (рекомендация)](#axios-инстанс-с-автоматическим-токеном-рекомендация)
+7. [Полезные утилиты для фронтенда](#полезные-утилиты-для-фронтенда)
+
+   - [Расчёт возраста и склонение лет](#расчёт-возраста-и-склонение-лет)
+
+---
+
+## Краткое описание
+
+SkillSwap API — это API для приложения обмена навыками. Оно реализовано как сервер (Express.js + TypeScript) и хостится в виде Netlify Functions (demo). Данные хранятся в памяти, поэтому сервер предназначен для разработки и тестирования (MVP). Концепция:
+
+- Пользователи указывают, чему могут научить (skillCanTeach) и чему хотят научиться (subcategoriesWantToLearn).
+- Категории/подкатегории — справочники, используются в выпадающих списках и для фильтрации.
+- Аутентификация — JWT (access + refresh). В демо — простая схема; в проде — рекомендуются улучшения (хранение хешей refresh, HttpOnly cookies и т.д.).
+
+---
+
+## Аутентификация (JWT)
+
+Все модифицирующие роуты (создать/обновить/лайк) требуют заголовок:
+
+```
+Authorization: Bearer <access_token>
+```
+
+### Эндпоинты auth
+
+| Метод | Путь                          | Описание                                                     |
+| ----- | ----------------------------- | ------------------------------------------------------------ |
+| GET   | `/auth/check-email?email=...` | Проверить, занят ли email (возвращает `{ exists: boolean }`) |
+| POST  | `/auth/register`              | Регистрация + создание профиля (см. ниже)                    |
+| POST  | `/auth/login`                 | Вход — `{ email, password }`                                 |
+| POST  | `/auth/refresh`               | Обновить access-токен — `{ refreshToken }`                   |
+| POST  | `/auth/logout`                | Выход — `{ email }` (аннулирует токены)                      |
+
+**Примечание:** В демо refresh- и access-токены подписаны и верифицируются; для продакшена рекомендуется использовать разные секреты для access/refresh (`JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET`) и хранить refresh-токены в защищённом виде (хеш).
+
+### Пример регистрации (POST /auth/register)
+
+Тело запроса:
+
+```json
+{
+  "credentials": {
+    "email": "maria@example.com",
+    "password": "mysecret123"
+  },
+  "user": {
+    "name": "Мария Иванова",
+    "location": "Екатеринбург",
+    "birthDate": "15.03.1995",
+    "gender": "Женский",
+    "skillCanTeach": {
+      "name": "Вязание крючком",
+      "description": "Научу с нуля за 3 занятия",
+      "categoryId": "7",
+      "subcategoryId": "701"
+    },
+    "images": ["https://example.com/1.jpg"],
+    "subcategoriesWantToLearn": [
+      { "id": "201", "categoryId": "2" },
+      { "id": "301", "categoryId": "3" }
+    ]
+  }
+}
+```
+
+Успешный ответ (`201 Created`):
+
+```json
+{
+  "user": {
+    /* полный профиль пользователя */
+  },
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6...",
+  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6..."
+}
+```
+
+Логин (`POST /auth/login`) возвращает тот же формат `{ user, token, refreshToken }`.
+
+---
+
+## Пользователи (users)
+
+### Эндпоинты users
+
+| Метод | Путь                                | Описание                                       |
+| ----- | ----------------------------------- | ---------------------------------------------- |
+| GET   | `/users`                            | Все пользователи                               |
+| GET   | `/users/:id`                        | Получить пользователя по ID                    |
+| POST  | `/users`                            | Создать пользователя (админ/импорт/интеграции) |
+| PUT   | `/users/:id`                        | Обновить профиль (требует токен)               |
+| POST  | `/users/:id/like`                   | Лайк / снять лайк (toggle) — требует токен     |
+| GET   | `/users/category/:categoryId`       | Все, кто учит навыку из категории              |
+| GET   | `/users/subcategory/:subcategoryId` | Все, кто учит конкретной подкатегории          |
+
+Примеры открытых ссылок:
+
+- Все пользователи: `https://skillswap-api.netlify.app/users`
+- Пользователь по ID: `https://skillswap-api.netlify.app/users/1`
+
+### Пример: создание пользователя (POST /users)
+
+Тело (пример):
 
 ```json
 {
@@ -56,25 +153,63 @@ CORS открыт полностью (`Access-Control-Allow-Origin: *`).
 }
 ```
 
-Ответ: `201 Created` + полный объект созданного пользователя с `id`.
+Ответ: `201 Created` + полный объект пользователя с `id`, `likesCount: 0`, `likedByUserIds: []`.
 
-## Лайк (toggle)
+### Лайк (toggle)
 
-`POST https://skillswap-api.netlify.app/users/:id/like`
+`POST /users/:id/like`
+Тело:
 
 ```json
 { "likerId": "a1b2c3d4-..." }
 ```
 
-Ответ:
+Ответ (пример):
 
 ```json
 { "likesCount": 5, "isLiked": true }
 ```
 
-## Примеры ответов API (реальные данные с сервера)
+---
 
-### 1. GET /users — все пользователи
+## Категории и подкатегории (справочник)
+
+Категории и подкатегории — канонические сущности на бэкенде. Фронтенд запрашивает их для выпадающих списков, а пользователи сохраняют ссылки (id), не произвольные строки.
+
+### Эндпоинты categories
+
+| Метод | Путь                                       | Описание                                        |
+| ----- | ------------------------------------------ | ----------------------------------------------- |
+| GET   | `/categories`                              | Все категории                                   |
+| GET   | `/categories/tree`                         | Дерево категорий + подкатегории (удобно для UI) |
+| GET   | `/categories/:id`                          | Одна категория по ID                            |
+| GET   | `/categories/:id/subcategories`            | Подкатегории категории                          |
+| GET   | `/categories/subcategories/all`            | Все подкатегории (flat)                         |
+| GET   | `/categories/subcategories/:subcategoryId` | Одна подкатегория                               |
+
+### Пример ответа GET `/categories/tree`
+
+```json
+[
+  {
+    "id": "1",
+    "name": "Творчество и искусство",
+    "subcategories": [
+      { "id": "101", "name": "Музыка и звук", "categoryId": "1" },
+      { "id": "102", "name": "Рисование и иллюстрация", "categoryId": "1" },
+      { "id": "103", "name": "Фотография", "categoryId": "1" }
+      // ...
+    ]
+  }
+  // остальные категории
+]
+```
+
+---
+
+## Примеры реальных ответов API
+
+### GET /users (фрагмент)
 
 ```json
 [
@@ -103,11 +238,11 @@ CORS открыт полностью (`Access-Control-Allow-Origin: *`).
     "likesCount": 1,
     "likedByUserIds": ["2"]
   }
-  //все пользователи
+  // ...
 ]
 ```
 
-### 2. GET /users/1 — конкретный пользователь
+### GET /users/1 (пример)
 
 ```json
 {
@@ -130,7 +265,7 @@ CORS открыт полностью (`Access-Control-Allow-Origin: *`).
 }
 ```
 
-### 3. GET /categories — все категории
+### GET /categories (фрагмент)
 
 ```json
 [
@@ -147,59 +282,38 @@ CORS открыт полностью (`Access-Control-Allow-Origin: *`).
 ]
 ```
 
-### 4. GET /categories/1/subcategories — подкатегории «Творчество и искусство»
+---
 
-```json
-[
-  { "id": "101", "name": "Музыка и звук", "categoryId": "1" },
-  { "id": "102", "name": "Рисование и иллюстрация", "categoryId": "1" },
-  { "id": "103", "name": "Фотография", "categoryId": "1" },
-  { "id": "104", "name": "Видеомонтаж", "categoryId": "1" },
-  { "id": "105", "name": "Креативное письмо", "categoryId": "1" },
-  { "id": "106", "name": "Арт-терапия", "categoryId": "1" },
-  { "id": "107", "name": "Графический дизайн", "categoryId": "1" },
-  { "id": "108", "name": "Актёрское мастерство", "categoryId": "1" }
-]
+## Axios-инстанс с автоматическим токеном (рекомендуется)
+
+Пример клиентского инстанса, который подставляет access-token из `localStorage`:
+
+```js
+import axios from "axios";
+
+const api = axios.create({
+  baseURL: "https://skillswap-api.netlify.app",
+});
+
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("accessToken");
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+// Примеры использования
+api.get("/categories/tree");
+api.get("/users");
+api.post("/auth/login", { email, password });
+api.post("/auth/register", payload);
+api.post(`/users/1/like`, { likerId: myUserId });
 ```
 
-### 5. POST /users — ответ после успешного создания
-
-```json
-{
-  "id": "c0a80121-7a9f-4c89-b1f4-8e3f9d7e8b2a",
-  "avatarUrl": "https://i.pinimg.com/736x/62/01/0d/62010d848b790a2336d1542fcda51789.jpg",
-  "name": "Мария Иванова",
-  "location": "Екатеринбург",
-  "birthDate": "15.03.1995",
-  "gender": "Женский",
-  "skillCanTeach": {
-    "name": "Вязание крючком",
-    "description": "Научу с нуля за 3 занятия",
-    "categoryId": "7",
-    "subcategoryId": "701"
-  },
-  "images": ["https://example.com/photo1.jpg", "https://example.com/photo2.jpg"],
-  "subcategoriesWantToLearn": [
-    { "id": "201", "categoryId": "2" },
-    { "id": "301", "categoryId": "3" }
-  ],
-  "likesCount": 0,
-  "likedByUserIds": []
-}
-```
-
-### 6. POST /users/1/like — ответ после лайка
-
-```json
-{
-  "likesCount": 2,
-  "isLiked": true
-}
-```
+---
 
 ## Полезные утилиты для фронтенда
 
-### Расчёт возраста
+### Расчёт возраста по строке `DD.MM.YYYY` и склонение лет
 
 ```js
 function getAge(birthDateStr) {
@@ -219,22 +333,6 @@ function declensionOfYears(age) {
   return `${age} лет`;
 }
 
-// Использование
-console.log(declensionOfYears(getAge("12.06.1992"))); // "33 года"
-```
-
-### Axios-инстанс (рекомендуется)
-
-```js
-import axios from "axios";
-
-const api = axios.create({
-  baseURL: "https://skillswap-api.netlify.app",
-});
-
-// Примеры
-api.get("/categories"); // все категории
-api.get("/categories/1/subcategories"); // подкатегории Творчества
-api.post("/users", newUserData); // создание пользователя
-api.post(`/users/${userId}/like`, { likerId: myId });
+// Пример
+declensionOfYears(getAge("12.06.1992")); // "33 года"
 ```

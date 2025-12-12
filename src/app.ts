@@ -1,6 +1,8 @@
 import express from "express";
 import usersRoutes from "./routes/usersRoutes.js";
 import categoriesRoutes from "./routes/categoriesRoutes.js";
+import authRoutes from "./routes/authRoutes.js";
+import authMiddleware from "./middleware/authMiddleware.js";
 
 const app = express();
 
@@ -18,7 +20,8 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use("/users", usersRoutes);
+app.use("/auth", authRoutes);
+app.use("/users", authMiddleware, usersRoutes);
 app.use("/categories", categoriesRoutes);
 
 export default app;

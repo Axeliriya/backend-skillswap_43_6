@@ -7,6 +7,13 @@
   node_bundler = "esbuild"
   external_node_modules = ["express"]
 
+# Redirect для авторизации
+[[redirects]]
+  from = "/auth/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+  force = true
+
 # Redirect для пользователей
 [[redirects]]
   from = "/users/*"

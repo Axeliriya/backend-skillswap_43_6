@@ -10,6 +10,14 @@ export const getSubcategories = (req: Request, res: Response) => {
   res.status(200).json(subcategories);
 };
 
+export const getCategoriesTree = (req: Request, res: Response) => {
+  const tree = categories.map((cat) => ({
+    ...cat,
+    subcategories: subcategories.filter((sub) => sub.categoryId === cat.id),
+  }));
+  res.status(200).json(tree);
+};
+
 // Получить подкатегории по ID категории
 export const getSubcategoriesByCategory = (
   req: Request<{ categoryId: string }>,
