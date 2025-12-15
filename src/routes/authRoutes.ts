@@ -9,7 +9,8 @@ import {
 
 const router = express.Router();
 
-router.get("/check-email", checkEmail);
+router.post("/check-email", checkEmail);
+// router.get("/check-email", checkEmail);
 router.post("/register", register);
 router.post("/login", login);
 router.post("/refresh", refreshTokenHandler);

@@ -236,7 +236,8 @@ Authorization: Bearer <access_token>
       { "id": "201", "name": "Английский язык", "categoryId": "2" }
     ],
     "likesCount": 1,
-    "likedByUserIds": ["2"]
+    "likedByUserIds": ["2"],
+    "createdAt": "2025-01-15T10:30:00.000Z"
   }
   // ...
 ]
@@ -261,7 +262,8 @@ Authorization: Bearer <access_token>
   "images": [],
   "subcategoriesWantToLearn": [],
   "likesCount": 1,
-  "likedByUserIds": ["2"]
+  "likedByUserIds": ["2"],
+  "createdAt": "2025-01-15T10:30:00.000Z"
 }
 ```
 

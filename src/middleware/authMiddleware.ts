@@ -1,18 +1,19 @@
-import { Request, Response, NextFunction } from "express";
-import { verifyAccessToken } from "../utils/jwt";
+import { supabase } from "../lib/supabase";
 
-export default function authMiddleware(req: Request, res: Response, next: NextFunction) {
-  const auth = req.headers.authorization;
-  if (!auth || !auth.startsWith("Bearer ")) {
-    return res.status(401).json({ message: "Требуется авторизация" });
+export default async function authMiddleware(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).json({ message: "No auth header" });
   }
 
-  const token = auth.split(" ")[1];
-  const payload = verifyAccessToken(token);
-  if (!payload || typeof payload === "string") {
-    return res.status(401).json({ message: "Неверный или просроченный токен" });
+  const token = authHeader.replace("Bearer ", "");
+
+  const { data, error } = await supabase.auth.getUser(token);
+
+  if (error || !data.user) {
+    return res.status(401).json({ message: "Invalid token" });
   }
 
-  res.locals.userId = (payload as any).userId;
+  res.locals.userId = data.user.id;
   next();
 }

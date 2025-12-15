@@ -1,61 +1,259 @@
-import { v4 as uuidv4 } from "uuid";
-import { User, users } from "../data/users";
-import { subcategories } from "../data/categories";
+import { supabase } from "../lib/supabase";
+import { Subcategory, UpdateUserPayload, User } from "../types/types";
 
-type CreateUserPayload = Partial<User> & { name?: string; skillCanTeach?: any };
+// Вспомогательная функция для получения подкатегории по id (можно вынести в отдельный сервис позже)
+async function getSubcategoryById(id: string): Promise<Subcategory | null> {
+  const { data } = await supabase
+    .from("subcategories")
+    .select("id, name, category_id")
+    .eq("id", id)
+    .single();
 
-export async function createUser(payload: CreateUserPayload) {
-  // Валидация минимальных полей (имя, skillCanTeach.name, categoryId/subcategoryId)
-  if (!payload.name || !payload.skillCanTeach?.name) {
-    throw new Error("Обязательные поля: name и skillCanTeach.name");
+  if (!data) return null;
+  return {
+    id: data.id,
+    name: data.name,
+    categoryId: data.category_id,
+  };
+}
+
+// Основная функция — получение полного профиля в нужном формате
+export async function getProfileByUserId(userId: string): Promise<User> {
+  // 1. Основные данные пользователя
+  const { data: user, error: userError } = await supabase
+    .from("users")
+    .select("*")
+    .eq("id", userId)
+    .single();
+
+  if (userError || !user) {
+    throw new Error("Профиль не найден");
   }
 
-  const { categoryId, subcategoryId } = payload.skillCanTeach;
-  if (!categoryId || !subcategoryId) {
-    throw new Error("Укажите categoryId и subcategoryId для skillCanTeach");
+  // 2. Навык, который преподаёт
+  const { data: skill } = await supabase
+    .from("skills_can_teach")
+    .select("name, description, category_id, subcategory_id")
+    .eq("user_id", userId)
+    .single();
+
+  // 3. Фото
+  const { data: images } = await supabase
+    .from("user_images")
+    .select("image_url")
+    .eq("user_id", userId)
+    .order("order_index", { ascending: true });
+
+  // 4. Что хочет изучать
+  const { data: wants } = await supabase
+    .from("user_want_to_learn")
+    .select("subcategory_id")
+    .eq("user_id", userId);
+
+  const subcategoriesWantToLearn = wants
+    ? await Promise.all(
+        wants.map(async (w) => {
+          const sub = await getSubcategoryById(w.subcategory_id);
+          return sub || { id: w.subcategory_id, name: "Неизвестно", categoryId: "" };
+        })
+      )
+    : [];
+
+  // 5. Реальный подсчёт лайков (вместо user.likes_count)
+  const { count: likesCount } = await supabase
+    .from("user_likes")
+    .select("id", { count: "exact", head: true })
+    .eq("liked_user_id", userId);
+
+  // 6. Кто лайкнул (для проверки isLiked на фронтенде)
+  const { data: likedBy } = await supabase
+    .from("user_likes")
+    .select("liker_user_id")
+    .eq("liked_user_id", userId);
+
+  return {
+    id: user.id,
+    avatarUrl: user.avatar_url || "https://skillswap-api.netlify.app/default-avatar.png",
+    name: user.name,
+    location: user.location || "Не указан",
+    birthDate: user.birth_date || "01.01.2000",
+    gender: user.gender || "Не указан",
+    skillCanTeach: skill
+      ? {
+          name: skill.name,
+          description: skill.description,
+          categoryId: skill.category_id,
+          subcategoryId: skill.subcategory_id,
+        }
+      : {
+          name: "",
+          description: "",
+          categoryId: "",
+          subcategoryId: "",
+        },
+    images:
+      images && images.length > 0
+        ? images.map((i) => i.image_url)
+        : ["https://skillswap-api.netlify.app/default-category.jpg"],
+    subcategoriesWantToLearn,
+    likesCount: likesCount ?? 0, // ← Вот здесь теперь всегда правда!
+    likedByUserIds: likedBy?.map((l) => l.liker_user_id) || [],
+    createdAt: user.created_at,
+  };
+}
+
+// Получить всех пользователей
+export async function getAllUsers(): Promise<User[]> {
+  const { data: users } = await supabase.from("users").select("id");
+
+  if (!users || users.length === 0) return [];
+
+  return Promise.all(users.map((u) => getProfileByUserId(u.id)));
+}
+
+// Лайк / анлайк
+export async function likeUser(likedUserId: string, likerUserId: string) {
+  console.log("=== LIKE REQUEST START ===");
+  console.log("Liker:", likerUserId);
+  console.log("Liked:", likedUserId);
+
+  if (likedUserId === likerUserId) {
+    throw new Error("Нельзя лайкнуть себя");
   }
 
-  // Проверяем, что такая подкатегория существует и принадлежит категории
-  const subExists = subcategories.some(
-    (s) => s.id === subcategoryId && s.categoryId === categoryId
-  );
-  if (!subExists) {
-    throw new Error("Указанная подкатегория не найдена или не принадлежит категории");
+  // Проверяем, есть ли уже лайк
+  const { data: existing } = await supabase
+    .from("user_likes")
+    .select("liker_user_id")
+    .eq("liker_user_id", likerUserId)
+    .eq("liked_user_id", likedUserId)
+    .maybeSingle();
+
+  let isLiked: boolean;
+
+  if (existing) {
+    // Удаляем лайк
+    await supabase
+      .from("user_likes")
+      .delete()
+      .eq("liker_user_id", likerUserId)
+      .eq("liked_user_id", likedUserId);
+
+    isLiked = false;
+  } else {
+    // Добавляем лайк
+    await supabase
+      .from("user_likes")
+      .insert({ liker_user_id: likerUserId, liked_user_id: likedUserId });
+
+    isLiked = true;
   }
 
-  // Если есть subcategoriesWantToLearn — валидируем каждую
+  // Сразу считаем актуальное количество лайков
+  const { count: likesCount } = await supabase
+    .from("user_likes")
+    .select("id", { count: "exact", head: true })
+    .eq("liked_user_id", likedUserId);
+
+  return {
+    isLiked,
+    likesCount: likesCount ?? 0, // ← Теперь фронтенд получает точный счётчик!
+  };
+}
+
+export async function updateProfile(
+  userId: string,
+  payload: UpdateUserPayload
+): Promise<User> {
+  // 1. Обновляем основную таблицу users (только если есть поля)
+  const userUpdates: Record<string, any> = {};
+
+  if (payload.name) userUpdates.name = payload.name;
+  if (payload.location) userUpdates.location = payload.location;
+  if (payload.birthDate) userUpdates.birth_date = payload.birthDate; // date формат
+  if (payload.gender) userUpdates.gender = payload.gender;
+  if (payload.avatarUrl) userUpdates.avatar_url = payload.avatarUrl;
+
+  if (Object.keys(userUpdates).length > 0) {
+    const { error } = await supabase.from("users").update(userUpdates).eq("id", userId);
+
+    if (error) throw new Error(`Ошибка обновления профиля: ${error.message}`);
+  }
+
+  // 2. Обновляем навык (upsert: insert or update on conflict по user_id)
+  if (payload.skillCanTeach) {
+    const { error } = await supabase.from("skills_can_teach").upsert(
+      {
+        user_id: userId,
+        name: payload.skillCanTeach.name,
+        description: payload.skillCanTeach.description,
+        category_id: payload.skillCanTeach.categoryId,
+        subcategory_id: payload.skillCanTeach.subcategoryId,
+      },
+      { onConflict: "user_id" }
+    ); // upsert по user_id
+
+    if (error) throw new Error(`Ошибка обновления навыка: ${error.message}`);
+  }
+
+  // 3. Обновляем изображения (удаляем старые, добавляем новые)
+  if (payload.images) {
+    // Удаляем старые
+    await supabase.from("user_images").delete().eq("user_id", userId);
+
+    // Добавляем новые с order_index
+    const newImages = payload.images.map((url, index) => ({
+      user_id: userId,
+      image_url: url,
+      order_index: index,
+    }));
+
+    const { error } = await supabase.from("user_images").insert(newImages);
+
+    if (error) throw new Error(`Ошибка обновления изображений: ${error.message}`);
+  }
+
+  // 4. Обновляем желаемые подкатегории (удаляем старые, добавляем новые)
   if (payload.subcategoriesWantToLearn) {
-    for (const want of payload.subcategoriesWantToLearn) {
-      const ok = subcategories.some(
-        (s) => s.id === want.id && s.categoryId === want.categoryId
-      );
-      if (!ok)
-        throw new Error(`Подкатегория для изучения не найдена: ${want.name || want.id}`);
-    }
+    // Удаляем старые
+    await supabase.from("user_want_to_learn").delete().eq("user_id", userId);
+
+    // Добавляем новые
+    const newWants = payload.subcategoriesWantToLearn.map((sub) => ({
+      user_id: userId,
+      subcategory_id: sub.id,
+    }));
+
+    const { error } = await supabase.from("user_want_to_learn").insert(newWants);
+
+    if (error)
+      throw new Error(`Ошибка обновления желаемых подкатегорий: ${error.message}`);
   }
 
-  const newId = uuidv4();
-  const newUser: User = {
-    id: newId,
-    likesCount: 0,
-    likedByUserIds: [],
-    avatarUrl: payload.avatarUrl || "/default-avatar.png",
-    location: payload.location || "Не указан",
-    birthDate: payload.birthDate || "01.01.2000",
-    gender: payload.gender || "Не указан",
-    images: Array.isArray(payload.images) ? payload.images : ["/default-category.jpg"],
-    subcategoriesWantToLearn: payload.subcategoriesWantToLearn || [],
-    name: payload.name || "Без имени",
-    skillCanTeach: {
-      name: payload.skillCanTeach.name,
-      description: payload.skillCanTeach.description || "",
-      categoryId: payload.skillCanTeach.categoryId,
-      subcategoryId: payload.skillCanTeach.subcategoryId,
-    },
-  } as User;
+  // Возвращаем обновлённый полный профиль
+  return getProfileByUserId(userId);
+}
 
-  // Сохранение в глобальном массиве users (in-memory)
-  users.push(newUser);
+// Пользователи по категории (по тому, что они преподают)
+export async function getUsersByCategory(categoryId: string): Promise<User[]> {
+  const { data } = await supabase
+    .from("skills_can_teach")
+    .select("user_id")
+    .eq("category_id", categoryId);
 
-  return newUser;
+  if (!data) return [];
+
+  return Promise.all(data.map((row) => getProfileByUserId(row.user_id)));
+}
+
+// Пользователи по подкатегории
+export async function getUsersBySubcategory(subcategoryId: string): Promise<User[]> {
+  const { data } = await supabase
+    .from("skills_can_teach")
+    .select("user_id")
+    .eq("subcategory_id", subcategoryId);
+
+  if (!data) return [];
+
+  return Promise.all(data.map((row) => getProfileByUserId(row.user_id)));
 }

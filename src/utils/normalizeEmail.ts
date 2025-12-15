@@ -1,7 +1,5 @@
-/** Нормализация email: приводим к нижнему регистру и обрезаем пробелы */
-function normalizeEmail(email: unknown): string | null {
-  if (!email || typeof email !== "string") return null;
+export function normalizeEmail(email: unknown): string {
+  if (typeof email !== "string") return "";
+
   return email.trim().toLowerCase();
 }
-
-export default normalizeEmail;

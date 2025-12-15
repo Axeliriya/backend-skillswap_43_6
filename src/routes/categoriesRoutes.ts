@@ -1,7 +1,8 @@
+// src/routes/categoriesRoutes.js
 import express from "express";
 import {
   getCategories,
-  getSubcategories,
+  getSubcategories, // ← теперь это все подкатегории
   getSubcategoriesByCategory,
   getSubcategoryById,
   getCategoryById,
@@ -10,16 +11,16 @@ import {
 
 const router = express.Router();
 
-// Маршруты для категорий
-router.get("/", getCategories); // GET /categories
-router.get("/tree", getCategoriesTree); // GET /categories/tree
-router.get("/:categoryId", getCategoryById); // GET /categories/:categoryId
+// Важно: сначала маршруты с :param, потом общие!
 
-// Маршруты для подкатегорий
-router.get("/subcategories/all", getSubcategories); // GET /categories/subcategories/all
-router.get("/subcategories/:subcategoryId", getSubcategoryById); // GET /categories/subcategories/:subcategoryId
+// Подкатегории
+router.get("/subcategories/:subcategoryId", getSubcategoryById);
+router.get("/subcategories", getSubcategories);
 
-// Получить подкатегории конкретной категории
-router.get("/:categoryId/subcategories", getSubcategoriesByCategory); // GET /categories/:categoryId/subcategories
+// Категории
+router.get("/", getCategories);
+router.get("/tree", getCategoriesTree);
+router.get("/:categoryId", getCategoryById);
+router.get("/:categoryId/subcategories", getSubcategoriesByCategory);
 
 export default router;
