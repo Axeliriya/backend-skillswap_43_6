@@ -1,8 +1,22 @@
 import { v4 as uuidv4 } from "uuid";
 import { User, users } from "../data/users";
-import { subcategories } from "../data/categories";
+import { subcategories, Subcategory } from "../data/categories";
 
-type CreateUserPayload = Partial<User> & { name?: string; skillCanTeach?: any };
+type CreateUserPayload = {
+  name: string;
+  avatarUrl?: string;
+  location?: string;
+  birthDate?: string;
+  gender?: User["gender"];
+  images?: string[];
+  subcategoriesWantToLearn?: Subcategory[];
+  skillCanTeach: {
+    name: string;
+    description?: string;
+    categoryId: string;
+    subcategoryId: string;
+  };
+};
 
 export async function createUser(payload: CreateUserPayload) {
   // Валидация минимальных полей (имя, skillCanTeach.name, categoryId/subcategoryId)
@@ -52,6 +66,7 @@ export async function createUser(payload: CreateUserPayload) {
       categoryId: payload.skillCanTeach.categoryId,
       subcategoryId: payload.skillCanTeach.subcategoryId,
     },
+    createdAt: new Date().toISOString(),
   } as User;
 
   // Сохранение в глобальном массиве users (in-memory)

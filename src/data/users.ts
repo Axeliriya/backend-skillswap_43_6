@@ -1,10 +1,3 @@
-// src/data/users.ts
-// Все изображения — страницы/файлы Wikimedia Commons (Special:FilePath).
-// Special:FilePath делает редирект на upload.wikimedia.org и обычно доступен без VPN.
-// Для avatarUrl использован параметр ?width=200 (быстрая миниатюра).
-// Для images — ?width=800 (подходящий размер для превью/галереи).
-// Не забудьте при публикации указывать атрибуцию, если это требуется лицензией.
-
 import { Subcategory } from "./categories";
 
 export type TeachSkill = {
@@ -26,6 +19,7 @@ export type User = {
   subcategoriesWantToLearn: Subcategory[];
   likesCount: number;
   likedByUserIds: string[];
+  createdAt: string;
 };
 
 export const users: User[] = [
@@ -55,6 +49,7 @@ export const users: User[] = [
     ],
     likesCount: 1,
     likedByUserIds: ["2"],
+    createdAt: "2025-12-15T08:49:21.796311+00:00",
   },
 
   {
@@ -83,6 +78,7 @@ export const users: User[] = [
     ],
     likesCount: 0,
     likedByUserIds: [],
+    createdAt: "2025-12-15T08:49:21.796311+00:00",
   },
 
   {
@@ -112,5 +108,6 @@ export const users: User[] = [
     ],
     likesCount: 2,
     likedByUserIds: ["1", "2"],
+    createdAt: "2025-12-15T08:49:21.796311+00:00",
   },
 ];

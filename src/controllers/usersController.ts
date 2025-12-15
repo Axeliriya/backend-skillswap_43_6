@@ -20,7 +20,8 @@ export const getUserById = (req: Request<{ id: string }>, res: Response) => {
 };
 
 export const createUser = async (req: Request, res: Response) => {
-  const newUserData: Omit<User, "id" | "likesCount" | "likedByUserIds"> = req.body;
+  const newUserData: Omit<User, "id" | "likesCount" | "likedByUserIds" | "createdAt"> =
+    req.body;
 
   const newUser: User = await usersService.createUser(newUserData);
 
