@@ -103,12 +103,109 @@ export async function getProfileByUserId(userId: string): Promise<User> {
 }
 
 // Получить всех пользователей
+// export async function getAllUsers(): Promise<User[]> {
+//   const { data: users } = await supabase.from("users").select("id");
+
+//   if (!users || users.length === 0) return [];
+
+//   return Promise.all(users.map((u) => getProfileByUserId(u.id)));
+// }
+
 export async function getAllUsers(): Promise<User[]> {
-  const { data: users } = await supabase.from("users").select("id");
+  const { data: rawUsers, error } = await supabase.from("users").select(`
+      id,
+      avatar_url,
+      name,
+      location,
+      birth_date,
+      gender,
+      created_at,
+      skills_can_teach!skills_can_teach_user_id_fkey (
+        name,
+        description,
+        category_id,
+        subcategory_id
+      ),
+      user_images (
+        image_url,
+        order_index
+      ),
+      user_want_to_learn (
+        subcategory_id
+      ),
+      user_likes!user_likes_liked_user_id_fkey (
+        liker_user_id
+      )
+    `);
 
-  if (!users || users.length === 0) return [];
+  if (error) {
+    console.error("Ошибка загрузки пользователей:", error);
+    throw error;
+  }
+  if (!rawUsers || rawUsers.length === 0) return [];
 
-  return Promise.all(users.map((u) => getProfileByUserId(u.id)));
+  // Собираем все subcategory_id из желаемого
+  const allWantSubcategoryIds = rawUsers
+    .flatMap((u: any) => u.user_want_to_learn?.map((w: any) => w.subcategory_id) || [])
+    .filter(Boolean);
+
+  let subcategoryMap: Record<string, Subcategory> = {};
+
+  if (allWantSubcategoryIds.length > 0) {
+    const uniqueIds = Array.from(new Set(allWantSubcategoryIds));
+    const { data: subcats } = await supabase
+      .from("subcategories")
+      .select("id, name, category_id")
+      .in("id", uniqueIds);
+
+    if (subcats) {
+      subcategoryMap = subcats.reduce((acc, sub) => {
+        acc[sub.id] = { id: sub.id, name: sub.name, categoryId: sub.category_id };
+        return acc;
+      }, {} as Record<string, Subcategory>);
+    }
+  }
+
+  return rawUsers.map((raw: any) => {
+    const skill = raw.skills_can_teach; // объект или null
+    const images = (raw.user_images || [])
+      .sort((a: any, b: any) => a.order_index - b.order_index)
+      .map((i: any) => i.image_url);
+
+    const wants = raw.user_want_to_learn || [];
+
+    return {
+      id: raw.id,
+      avatarUrl: raw.avatar_url || "https://skillswap-api.netlify.app/default-avatar.png",
+      name: raw.name,
+      location: raw.location || "Не указан",
+      birthDate: raw.birth_date || "01.01.2000",
+      gender: raw.gender || "Не указан",
+      skillCanTeach: skill
+        ? {
+            name: skill.name,
+            description: skill.description,
+            categoryId: skill.category_id,
+            subcategoryId: skill.subcategory_id,
+          }
+        : { name: "", description: "", categoryId: "", subcategoryId: "" },
+      images:
+        images.length > 0
+          ? images
+          : ["https://skillswap-api.netlify.app/default-subcategory.jpg"],
+      subcategoriesWantToLearn: wants.map(
+        (w: any) =>
+          subcategoryMap[w.subcategory_id] || {
+            id: w.subcategory_id,
+            name: "Неизвестно",
+            categoryId: "",
+          }
+      ),
+      likesCount: raw.user_likes?.length || 0,
+      likedByUserIds: raw.user_likes?.map((l: any) => l.liker_user_id) || [],
+      createdAt: raw.created_at,
+    };
+  });
 }
 
 // Лайк / анлайк
@@ -121,7 +218,7 @@ export async function likeUser(likedUserId: string, likerUserId: string) {
     throw new Error("Нельзя лайкнуть себя");
   }
 
-  // Проверяем, есть ли уже лайк
+  // Проверяем существование лайка
   const { data: existing } = await supabase
     .from("user_likes")
     .select("liker_user_id")
@@ -132,32 +229,33 @@ export async function likeUser(likedUserId: string, likerUserId: string) {
   let isLiked: boolean;
 
   if (existing) {
-    // Удаляем лайк
     await supabase
       .from("user_likes")
       .delete()
       .eq("liker_user_id", likerUserId)
       .eq("liked_user_id", likedUserId);
-
     isLiked = false;
   } else {
-    // Добавляем лайк
     await supabase
       .from("user_likes")
       .insert({ liker_user_id: likerUserId, liked_user_id: likedUserId });
-
     isLiked = true;
   }
 
-  // Сразу считаем актуальное количество лайков
-  const { count: likesCount } = await supabase
+  // Надёжный подсчёт
+  const { count, error: countError } = await supabase
     .from("user_likes")
-    .select("id", { count: "exact", head: true })
+    .select("*", { count: "exact", head: true })
     .eq("liked_user_id", likedUserId);
+
+  if (countError) {
+    console.error("Ошибка при подсчёте лайков:", countError);
+    throw new Error("Не удалось обновить счётчик лайков");
+  }
 
   return {
     isLiked,
-    likesCount: likesCount ?? 0, // ← Теперь фронтенд получает точный счётчик!
+    likesCount: count ?? 0,
   };
 }
 
