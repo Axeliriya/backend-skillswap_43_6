@@ -53,11 +53,13 @@ export async function createUser(payload: CreateUserPayload) {
     id: newId,
     likesCount: 0,
     likedByUserIds: [],
-    avatarUrl: payload.avatarUrl || "/default-avatar.png",
+    avatarUrl: payload.avatarUrl || "https://skillswap-api.netlify.app/default_a.jpg",
     location: payload.location || "Не указан",
     birthDate: payload.birthDate || "01.01.2000",
     gender: payload.gender || "Не указан",
-    images: Array.isArray(payload.images) ? payload.images : ["/default-subcategory.jpg"],
+    images: Array.isArray(payload.images)
+      ? payload.images
+      : ["https://skillswap-api.netlify.app/default_c.png"],
     subcategoriesWantToLearn: payload.subcategoriesWantToLearn || [],
     name: payload.name || "Без имени",
     skillCanTeach: {
