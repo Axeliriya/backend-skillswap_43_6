@@ -57,7 +57,7 @@ export async function createUser(payload: CreateUserPayload) {
     location: payload.location || "Не указан",
     birthDate: payload.birthDate || "01.01.2000",
     gender: payload.gender || "Не указан",
-    images: Array.isArray(payload.images) ? payload.images : ["/default-category.jpg"],
+    images: Array.isArray(payload.images) ? payload.images : ["/default-subcategory.jpg"],
     subcategoriesWantToLearn: payload.subcategoriesWantToLearn || [],
     name: payload.name || "Без имени",
     skillCanTeach: {
