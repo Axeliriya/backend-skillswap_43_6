@@ -1,51 +1,42 @@
 # SkillSwap API — Документация
 
-**Базовый URL:** `https://skillswap-api.netlify.app`
+**Базовый URL:** `https://skillswap-api.netlify.app`  
 CORS: открыт полностью (`Access-Control-Allow-Origin: *`).
-Данные хранятся в памяти — после redeploy всё сбрасывается (MVP / demo).
+
+API построен на Express.js + TypeScript, работает через Netlify Functions.  
+Данные хранятся в Supabase (PostgreSQL + Auth).  
+Аутентификация — через Supabase Auth (JWT access + refresh токены).
 
 ---
 
 ## Содержание
 
 1. [Краткое описание](#краткое-описание)
-2. [Аутентификация (JWT)](#аутентификация-jwt)
-
-   - [Эндпоинты auth](#эндпоинты-auth)
-   - [Пример регистрации](#пример-регистрации-post-authregister)
-
+2. [Аутентификация](#аутентификация)
 3. [Пользователи (users)](#пользователи-users)
-
-   - [Эндпоинты users](#эндпоинты-users)
-   - [Пример: создание пользователя (POST /users)](#пример-создания-пользователя-post-users)
-   - [Лайк (toggle)](#лайк-toggle)
-
-4. [Категории и подкатегории (справочник)](#категории-и-подкатегории-справочник)
-
-   - [Эндпоинты categories](#эндпоинты-categories)
-   - [Пример ответа /categories/tree](#пример-ответа-categoriestree)
-
-5. [Примеры реальных ответов API](#примеры-реальных-ответов-api)
-6. [Axios-инстанс с автоматическим токеном (рекомендация)](#axios-инстанс-с-автоматическим-токеном-рекомендация)
+4. [Категории и подкатегории](#категории-и-подкатегории)
+5. [Примеры ответов API](#примеры-ответов-api)
+6. [Рекомендации по клиенту (Axios)](#рекомендации-по-клиенту-axios)
 7. [Полезные утилиты для фронтенда](#полезные-утилиты-для-фронтенда)
-
-   - [Расчёт возраста и склонение лет](#расчёт-возраста-и-склонение-лет)
 
 ---
 
 ## Краткое описание
 
-SkillSwap API — это API для приложения обмена навыками. Оно реализовано как сервер (Express.js + TypeScript) и хостится в виде Netlify Functions (demo). Данные хранятся в памяти, поэтому сервер предназначен для разработки и тестирования (MVP). Концепция:
+SkillSwap — приложение для обмена навыками.  
+Пользователи указывают:
 
-- Пользователи указывают, чему могут научить (skillCanTeach) и чему хотят научиться (subcategoriesWantToLearn).
-- Категории/подкатегории — справочники, используются в выпадающих списках и для фильтрации.
-- Аутентификация — JWT (access + refresh). В демо — простая схема; в проде — рекомендуются улучшения (хранение хешей refresh, HttpOnly cookies и т.д.).
+- **skillCanTeach** — чему могут научить (один навык с названием, описанием, категорией и подкатегорией)
+- **subcategoriesWantToLearn** — чему хотят научиться (несколько подкатегорий)
+
+Категории и подкатегории — фиксированные справочники в базе.  
+Лайки работают как toggle (поставить / снять).
 
 ---
 
-## Аутентификация (JWT)
+## Аутентификация
 
-Все модифицирующие роуты (создать/обновить/лайк) требуют заголовок:
+Все защищённые роуты требуют заголовок:
 
 ```
 Authorization: Bearer <access_token>
@@ -53,42 +44,34 @@ Authorization: Bearer <access_token>
 
 ### Эндпоинты auth
 
-| Метод | Путь                          | Описание                                                     |
-| ----- | ----------------------------- | ------------------------------------------------------------ |
-| GET   | `/auth/check-email?email=...` | Проверить, занят ли email (возвращает `{ exists: boolean }`) |
-| POST  | `/auth/register`              | Регистрация + создание профиля (см. ниже)                    |
-| POST  | `/auth/login`                 | Вход — `{ email, password }`                                 |
-| POST  | `/auth/refresh`               | Обновить access-токен — `{ refreshToken }`                   |
-| POST  | `/auth/logout`                | Выход — `{ email }` (аннулирует токены)                      |
+| Метод | Путь                | Тело запроса                         | Описание                                               |
+| ----- | ------------------- | ------------------------------------ | ------------------------------------------------------ |
+| POST  | `/auth/check-email` | `{ "email": "test@example.com" }`    | Проверка, занят ли email (`{ exists: true/false }`)    |
+| POST  | `/auth/register`    | `{ email, password, user: { ... } }` | Регистрация + создание профиля                         |
+| POST  | `/auth/login`       | `{ email, password }`                | Вход                                                   |
+| POST  | `/auth/refresh`     | `{ refreshToken }`                   | Обновление access-токена                               |
+| POST  | `/auth/logout`      | —                                    | Выход (на сервере просто ответ, клиент очищает токены) |
 
-**Примечание:** В демо refresh- и access-токены подписаны и верифицируются; для продакшена рекомендуется использовать разные секреты для access/refresh (`JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET`) и хранить refresh-токены в защищённом виде (хеш).
-
-### Пример регистрации (POST /auth/register)
-
-Тело запроса:
+### Пример регистрации (POST `/auth/register`)
 
 ```json
 {
-  "credentials": {
-    "email": "maria@example.com",
-    "password": "mysecret123"
-  },
+  "email": "maria@example.com",
+  "password": "mysecret123",
   "user": {
     "name": "Мария Иванова",
     "location": "Екатеринбург",
     "birthDate": "15.03.1995",
     "gender": "Женский",
+    "avatarUrl": "https://example.com/avatar.jpg",
     "skillCanTeach": {
       "name": "Вязание крючком",
       "description": "Научу с нуля за 3 занятия",
       "categoryId": "7",
       "subcategoryId": "701"
     },
-    "images": ["https://example.com/1.jpg"],
-    "subcategoriesWantToLearn": [
-      { "id": "201", "categoryId": "2" },
-      { "id": "301", "categoryId": "3" }
-    ]
+    "images": ["https://example.com/photo1.jpg", "https://example.com/photo2.jpg"],
+    "subcategoriesWantToLearn": [{ "id": "201" }, { "id": "301" }]
   }
 }
 ```
@@ -105,7 +88,7 @@ Authorization: Bearer <access_token>
 }
 ```
 
-Логин (`POST /auth/login`) возвращает тот же формат `{ user, token, refreshToken }`.
+Логин (`POST /auth/login`) возвращает тот же формат.
 
 ---
 
@@ -113,81 +96,46 @@ Authorization: Bearer <access_token>
 
 ### Эндпоинты users
 
-| Метод | Путь                                | Описание                                       |
-| ----- | ----------------------------------- | ---------------------------------------------- |
-| GET   | `/users`                            | Все пользователи                               |
-| GET   | `/users/:id`                        | Получить пользователя по ID                    |
-| POST  | `/users`                            | Создать пользователя (админ/импорт/интеграции) |
-| PUT   | `/users/:id`                        | Обновить профиль (требует токен)               |
-| POST  | `/users/:id/like`                   | Лайк / снять лайк (toggle) — требует токен     |
-| GET   | `/users/category/:categoryId`       | Все, кто учит навыку из категории              |
-| GET   | `/users/subcategory/:subcategoryId` | Все, кто учит конкретной подкатегории          |
-
-Примеры открытых ссылок:
-
-- Все пользователи: `https://skillswap-api.netlify.app/users`
-- Пользователь по ID: `https://skillswap-api.netlify.app/users/1`
-
-### Пример: создание пользователя (POST /users)
-
-Тело (пример):
-
-```json
-{
-  "name": "Мария Иванова",
-  "location": "Екатеринбург",
-  "birthDate": "15.03.1995",
-  "gender": "Женский",
-  "avatarUrl": "https://example.com/avatar.jpg",
-  "skillCanTeach": {
-    "name": "Вязание крючком",
-    "description": "Научу с нуля за 3 занятия",
-    "categoryId": "7",
-    "subcategoryId": "701"
-  },
-  "images": ["https://example.com/photo1.jpg", "https://example.com/photo2.jpg"],
-  "subcategoriesWantToLearn": [
-    { "id": "201", "categoryId": "2" },
-    { "id": "301", "categoryId": "3" }
-  ]
-}
-```
-
-Ответ: `201 Created` + полный объект пользователя с `id`, `likesCount: 0`, `likedByUserIds: []`.
+| Метод | Путь                                | Требует токен? | Описание                                                |
+| ----- | ----------------------------------- | -------------- | ------------------------------------------------------- |
+| GET   | `/users`                            | Нет            | Все пользователи                                        |
+| GET   | `/users/:id`                        | Нет            | Профиль по ID                                           |
+| PUT   | `/users/:id`                        | Да             | Обновить свой профиль (поля те же, что при регистрации) |
+| POST  | `/users/:id/like`                   | Да             | Поставить / снять лайк                                  |
+| GET   | `/users/category/:categoryId`       | Нет            | Пользователи, которые учат навык из категории           |
+| GET   | `/users/subcategory/:subcategoryId` | Нет            | Пользователи, которые учат конкретную подкатегорию      |
 
 ### Лайк (toggle)
 
-`POST /users/:id/like`
-Тело:
+`POST /users/:id/like`  
+Тело: не требуется (likerId берётся из токена)
+
+Ответ:
 
 ```json
-{ "likerId": "a1b2c3d4-..." }
+{ "isLiked": true } // или false, если сняли лайк
 ```
 
-Ответ (пример):
-
-```json
-{ "likesCount": 5, "isLiked": true }
-```
+Поле `likesCount` в профиле обновляется автоматически триггером.
 
 ---
 
-## Категории и подкатегории (справочник)
+## Категории и подкатегории
 
-Категории и подкатегории — канонические сущности на бэкенде. Фронтенд запрашивает их для выпадающих списков, а пользователи сохраняют ссылки (id), не произвольные строки.
+Справочники хранятся в Supabase и неизменяемы.
 
 ### Эндпоинты categories
 
-| Метод | Путь                                       | Описание                                        |
-| ----- | ------------------------------------------ | ----------------------------------------------- |
-| GET   | `/categories`                              | Все категории                                   |
-| GET   | `/categories/tree`                         | Дерево категорий + подкатегории (удобно для UI) |
-| GET   | `/categories/:id`                          | Одна категория по ID                            |
-| GET   | `/categories/:id/subcategories`            | Подкатегории категории                          |
-| GET   | `/categories/subcategories/all`            | Все подкатегории (flat)                         |
-| GET   | `/categories/subcategories/:subcategoryId` | Одна подкатегория                               |
+| Метод | Путь                                       | Описание                          |
+| ----- | ------------------------------------------ | --------------------------------- |
+| GET   | `/categories`                              | Все категории                     |
+| GET   | `/categories/tree`                         | Дерево категорий с подкатегориями |
+| GET   | `/categories/:categoryId`                  | Одна категория                    |
+| GET   | `/categories/:categoryId/subcategories`    | Подкатегории конкретной категории |
+| GET   | `/categories/subcategories`                | Все подкатегории (flat список)    |
+| GET   | `/categories/subcategories/:subcategoryId` | Одна подкатегория                 |
 
-### Пример ответа GET `/categories/tree`
+### Пример ответа `/categories/tree`
 
 ```json
 [
@@ -201,21 +149,21 @@ Authorization: Bearer <access_token>
       // ...
     ]
   }
-  // остальные категории
+  // остальные 9 категорий
 ]
 ```
 
 ---
 
-## Примеры реальных ответов API
+## Примеры ответов API
 
-### GET /users (фрагмент)
+### GET `/users` (фрагмент)
 
 ```json
 [
   {
-    "id": "1",
-    "avatarUrl": "https://commons.wikimedia.org/wiki/Special:FilePath/A_drummer.jpg?width=200",
+    "id": "uuid-1234",
+    "avatarUrl": "https://.../A_drummer.jpg?width=200",
     "name": "Алексей Ковалёв",
     "location": "Москва",
     "birthDate": "12.06.1992",
@@ -227,68 +175,38 @@ Authorization: Bearer <access_token>
       "subcategoryId": "101"
     },
     "images": [
-      "https://commons.wikimedia.org/wiki/Special:FilePath/A_drummer.jpg?width=800",
-      "https://commons.wikimedia.org/wiki/Special:FilePath/A_drummer_holding_a_drum.jpg?width=800",
-      "https://commons.wikimedia.org/wiki/Special:FilePath/Drummer.jpg?width=800"
+      "https://.../A_drummer.jpg?width=800",
+      "https://.../A_drummer_holding_a_drum.jpg?width=800"
     ],
     "subcategoriesWantToLearn": [
       { "id": "103", "name": "Фотография", "categoryId": "1" },
       { "id": "201", "name": "Английский язык", "categoryId": "2" }
     ],
-    "likesCount": 1,
-    "likedByUserIds": ["2"],
+    "likesCount": 3,
+    "likedByUserIds": ["uuid-5678", "uuid-9012"],
     "createdAt": "2025-01-15T10:30:00.000Z"
   }
   // ...
 ]
 ```
 
-### GET /users/1 (пример)
+### GET `/users/:id`
 
-```json
-{
-  "id": "1",
-  "avatarUrl": "https://commons.wikimedia.org/wiki/Special:FilePath/A_drummer.jpg?width=200",
-  "name": "Алексей Ковалёв",
-  "location": "Москва",
-  "birthDate": "12.06.1992",
-  "gender": "Мужской",
-  "skillCanTeach": {
-    "name": "Игра на барабанах",
-    "description": "Привет! Я играю на барабанах уже больше 10 лет...",
-    "categoryId": "1",
-    "subcategoryId": "101"
-  },
-  "images": [],
-  "subcategoriesWantToLearn": [],
-  "likesCount": 1,
-  "likedByUserIds": ["2"],
-  "createdAt": "2025-01-15T10:30:00.000Z"
-}
-```
+Тот же объект, но один пользователь.
 
-### GET /categories (фрагмент)
+### GET `/categories`
 
 ```json
 [
   { "id": "1", "name": "Творчество и искусство" },
-  { "id": "2", "name": "Иностранные языки" },
-  { "id": "3", "name": "Здоровье и лайфстайл" },
-  { "id": "4", "name": "Технологии и IT" },
-  { "id": "5", "name": "Спорт и активный отдых" },
-  { "id": "6", "name": "Кулинария и выпечка" },
-  { "id": "7", "name": "Ремесла и handmade" },
-  { "id": "8", "name": "Бизнес и финансы" },
-  { "id": "9", "name": "Наука и образование" },
-  { "id": "10", "name": "Дом и сад" }
+  { "id": "2", "name": "Иностранные языки" }
+  // ... до 10
 ]
 ```
 
 ---
 
-## Axios-инстанс с автоматическим токеном (рекомендуется)
-
-Пример клиентского инстанса, который подставляет access-token из `localStorage`:
+## Рекомендации по клиенту (Axios)
 
 ```js
 import axios from "axios";
@@ -299,23 +217,25 @@ const api = axios.create({
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("accessToken");
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
   return config;
 });
 
-// Примеры использования
+// Примеры
 api.get("/categories/tree");
 api.get("/users");
 api.post("/auth/login", { email, password });
 api.post("/auth/register", payload);
-api.post(`/users/1/like`, { likerId: myUserId });
+api.post("/users/some-id/like"); // likerId из токена
 ```
 
 ---
 
 ## Полезные утилиты для фронтенда
 
-### Расчёт возраста по строке `DD.MM.YYYY` и склонение лет
+### Расчёт возраста и склонение лет
 
 ```js
 function getAge(birthDateStr) {

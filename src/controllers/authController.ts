@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { supabase } from "../lib/supabase";
 import { normalizeEmail } from "../utils/normalizeEmail";
 import * as usersService from "../services/usersService";
+import { Subcategory } from "../types/types";
 
 export const getEmails = async (req: Request, res: Response) => {
   try {
@@ -130,7 +131,7 @@ export async function register(req: Request, res: Response) {
     }
 
     if (user.subcategoriesWantToLearn?.length) {
-      const rows = user.subcategoriesWantToLearn.map((s) => ({
+      const rows = user.subcategoriesWantToLearn.map((s: Subcategory) => ({
         user_id: userId,
         subcategory_id: s.id,
       }));

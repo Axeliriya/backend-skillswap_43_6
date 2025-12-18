@@ -73,7 +73,7 @@ export async function getProfileByUserId(userId: string): Promise<User> {
 
   return {
     id: user.id,
-    avatarUrl: user.avatar_url || "https://skillswap-api.netlify.app/default-avatar.png",
+    avatarUrl: user.avatar_url || "https://skillswap-api.netlify.app/default-a.jpg",
     name: user.name,
     location: user.location || "Не указан",
     birthDate: user.birth_date || "01.01.2000",
@@ -94,22 +94,13 @@ export async function getProfileByUserId(userId: string): Promise<User> {
     images:
       images && images.length > 0
         ? images.map((i) => i.image_url)
-        : ["https://skillswap-api.netlify.app/default-category.jpg"],
+        : ["https://skillswap-api.netlify.app/default-c.png"],
     subcategoriesWantToLearn,
     likesCount: likesCount ?? 0, // ← Вот здесь теперь всегда правда!
     likedByUserIds: likedBy?.map((l) => l.liker_user_id) || [],
     createdAt: user.created_at,
   };
 }
-
-// Получить всех пользователей
-// export async function getAllUsers(): Promise<User[]> {
-//   const { data: users } = await supabase.from("users").select("id");
-
-//   if (!users || users.length === 0) return [];
-
-//   return Promise.all(users.map((u) => getProfileByUserId(u.id)));
-// }
 
 export async function getAllUsers(): Promise<User[]> {
   const { data: rawUsers, error } = await supabase.from("users").select(`
