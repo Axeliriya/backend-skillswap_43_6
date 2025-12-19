@@ -1,4 +1,4 @@
-import { supabase } from "../lib/supabase";
+import { supabase } from "../lib/supabase.js";
 import { Subcategory, UpdateUserPayload, User } from "../types/types";
 
 // Вспомогательная функция для получения подкатегории по id (можно вынести в отдельный сервис позже)

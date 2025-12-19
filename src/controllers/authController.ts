@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { supabase } from "../lib/supabase";
+import { supabase } from "../lib/supabase.js";
 import { normalizeEmail } from "../utils/normalizeEmail.js";
 import * as usersService from "../services/usersService.js";
 import { Subcategory } from "../types/types";
