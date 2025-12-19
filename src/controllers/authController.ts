@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { supabase } from "../lib/supabase";
-import { normalizeEmail } from "../utils/normalizeEmail";
-import * as usersService from "../services/usersService";
+import { normalizeEmail } from "../utils/normalizeEmail.js";
+import * as usersService from "../services/usersService.js";
 import { Subcategory } from "../types/types";
 
 export const getEmails = async (req: Request, res: Response) => {

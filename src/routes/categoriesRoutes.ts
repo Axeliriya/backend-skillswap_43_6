@@ -7,7 +7,7 @@ import {
   getSubcategoryById,
   getCategoryById,
   getCategoriesTree,
-} from "../controllers/categoriesController";
+} from "../controllers/categoriesController.js";
 
 const router = express.Router();
 

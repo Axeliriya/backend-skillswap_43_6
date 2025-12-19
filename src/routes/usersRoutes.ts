@@ -6,7 +6,7 @@ import {
   getUsersBySubcategory,
   likeUser,
   updateUser,
-} from "../controllers/usersController";
+} from "../controllers/usersController.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 
 const router = express.Router();
